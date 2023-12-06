@@ -37,11 +37,11 @@
 
 ; TLCOLOR -> IMG
 ; produce an image of a well-functioning traffic light
-(check-expect (ampelmacher RED) (beside (lightbulb "red" "solid") (lightbulb "yellow" "outline") (lightbulb "green" "outline")))
-(check-expect (ampelmacher YELLOW) (beside (lightbulb "red" "outline") (lightbulb "yellow" "solid") (lightbulb "green" "outline")))
-(check-expect (ampelmacher GREEN) (beside (lightbulb "red" "outline") (lightbulb "yellow" "outline") (lightbulb "green" "solid")))
+(check-expect (ampelmacher RED) (above (lightbulb "red" "solid") (lightbulb "yellow" "outline") (lightbulb "green" "outline")))
+(check-expect (ampelmacher YELLOW) (above (lightbulb "red" "outline") (lightbulb "yellow" "solid") (lightbulb "green" "outline")))
+(check-expect (ampelmacher GREEN) (above (lightbulb "red" "outline") (lightbulb "yellow" "outline") (lightbulb "green" "solid")))
 (define (ampelmacher color)
-  (beside (lightbulb "red" (if (equal? RED color) "solid" "outline"))
+  (above (lightbulb "red" (if (equal? RED color) "solid" "outline"))
           (lightbulb "yellow" (if (equal? YELLOW color) "solid" "outline"))
           (lightbulb "green" (if (equal? GREEN color) "solid" "outline"))))
   
