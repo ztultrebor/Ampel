@@ -5,73 +5,87 @@
 (require 2htdp/universe)
 
 
+; data definitions
+
+;; Tlcolor is one of
+;; - false
+;; - String
+;; represents any of the available traffic light colors, or false
+(define STOP "red")
+(define CAUTION "yellow")
+(define GO "green")
+(define EXIT #false) ; stop the world!
+#;
+(define (fn-for-tlcolor color)
+  (... t))
+
+
 ; constants
+
 (define BULBRAD 50) ; light bulb radius
-(define RED 1)
-(define YELLOW 2)
-(define GREEN 3)
-(define BLUE 42) ; stop the world!
 
 
-;functions;
+;functions
 
-; WORLDSTATE -> WORLDSTATE
+; Tlcolor -> Tlcolor
 ; iterate the traffic light, for ever
 (define (main color)
   (big-bang color
     [to-draw ampelmacher]
     [on-tick color-change 1]
-    [on-mouse blueit]
+    [on-mouse terminate]
     [stop-when finished?]
     ))
 
-; TLCOLOR -> TLCOLOR
+; Tlcolor -> Tlcolor
 ; change the color of the light in a systematic way
-(check-expect (color-change RED) GREEN) ; checks
-(check-expect (color-change YELLOW) RED) ; checks
-(check-expect (color-change GREEN) YELLOW) ; checks
+(check-expect (color-change STOP) GO) ; checks
+(check-expect (color-change CAUTION) STOP) ; checks
+(check-expect (color-change GO) CAUTION) ; checks
 (define (color-change color)
-  (cond [(equal? RED color) GREEN]
-        [(equal? YELLOW color) RED]
-        [(equal? GREEN color) YELLOW]))
+  (cond [(equal? STOP color) GO]
+        [(equal? CAUTION color) STOP]
+        [(equal? GO color) CAUTION]))
 
-; TLCOLOR -> IMG
+; Tlcolor -> Img
 ; produce an image of a well-functioning traffic light
-(check-expect (ampelmacher RED) (above (lightbulb "red" "solid") (lightbulb "yellow" "outline") (lightbulb "green" "outline")))
-(check-expect (ampelmacher YELLOW) (above (lightbulb "red" "outline") (lightbulb "yellow" "solid") (lightbulb "green" "outline")))
-(check-expect (ampelmacher GREEN) (above (lightbulb "red" "outline") (lightbulb "yellow" "outline") (lightbulb "green" "solid")))
+(check-expect (ampelmacher STOP) (above (lightbulb STOP "solid") (lightbulb CAUTION "outline") (lightbulb GO "outline")))
+(check-expect (ampelmacher CAUTION) (above (lightbulb STOP "outline") (lightbulb CAUTION "solid") (lightbulb GO "outline")))
+(check-expect (ampelmacher GO) (above (lightbulb STOP "outline") (lightbulb CAUTION "outline") (lightbulb GO "solid")))
 (define (ampelmacher color)
-  (above (lightbulb "red" (if (equal? RED color) "solid" "outline"))
-          (lightbulb "yellow" (if (equal? YELLOW color) "solid" "outline"))
-          (lightbulb "green" (if (equal? GREEN color) "solid" "outline"))))
+  (above (lightbulb STOP (if (equal? STOP color) "solid" "outline"))
+          (lightbulb CAUTION (if (equal? CAUTION color) "solid" "outline"))
+          (lightbulb GO (if (equal? GO color) "solid" "outline"))))
   
-; (TLCOLOR, STRING) -> IMG
+; (Tlcolor, String) -> Img
 ; a helper function that generates colored bulbs in on or off state
-(check-expect (lightbulb "red" "outline") (overlay (circle BULBRAD "outline" "red") (square (* 3 BULBRAD) "solid" "black"))) ; checks
-(check-expect (lightbulb "red" "solid") (overlay (circle BULBRAD "solid" "red") (square (* 3 BULBRAD) "solid" "black"))) ; checks
-(check-expect (lightbulb "yellow" "outline") (overlay (circle BULBRAD "outline" "yellow") (square (* 3 BULBRAD) "solid" "black"))) ; checks
-(check-expect (lightbulb "yellow" "solid") (overlay (circle BULBRAD "solid" "yellow") (square (* 3 BULBRAD) "solid" "black"))) ; checks
-(check-expect (lightbulb "green" "outline") (overlay (circle BULBRAD "outline" "green") (square (* 3 BULBRAD) "solid" "black"))) ; checks
-(check-expect (lightbulb "green" "solid") (overlay (circle BULBRAD "solid" "green") (square (* 3 BULBRAD) "solid" "black"))) ; checks
+(check-expect (lightbulb STOP "outline") (overlay (circle BULBRAD "outline" STOP) (square (* 3 BULBRAD) "solid" "black"))) ; checks
+(check-expect (lightbulb STOP "solid") (overlay (circle BULBRAD "solid" STOP) (square (* 3 BULBRAD) "solid" "black"))) ; checks
+(check-expect (lightbulb CAUTION "outline") (overlay (circle BULBRAD "outline" CAUTION) (square (* 3 BULBRAD) "solid" "black"))) ; checks
+(check-expect (lightbulb CAUTION "solid") (overlay (circle BULBRAD "solid" CAUTION) (square (* 3 BULBRAD) "solid" "black"))) ; checks
+(check-expect (lightbulb GO "outline") (overlay (circle BULBRAD "outline" GO) (square (* 3 BULBRAD) "solid" "black"))) ; checks
+(check-expect (lightbulb GO "solid") (overlay (circle BULBRAD "solid" GO) (square (* 3 BULBRAD) "solid" "black"))) ; checks
 (define (lightbulb color impact)
   (overlay (circle BULBRAD impact color) (square (* 3 BULBRAD) "solid" "black")))
 
-; (TLCOLOR, INT, INT, STRING) -> TLCOLOR
+; (Tlcolor, Int, Int, MouseEvent) -> Tlcolor
 ; end cycle on mouseclick in ampel window
-(define (blueit color x y me)
-  (cond [(string=? "button-down" me) BLUE]
+(check-expect (terminate CAUTION 20 200 "button-down") EXIT)
+(check-expect (terminate CAUTION 20 200 "button-up") CAUTION)
+(define (terminate color x y me)
+  (cond [(mouse=? "button-down" me) EXIT]
         [else color]))
 
-; TLCOLOR -> BOOLEAN
-; end when color is blue
-(check-expect (finished? RED) #false) ; checks
-(check-expect (finished? YELLOW) #false) ; checks
-(check-expect (finished? GREEN) #false) ; checks
-(check-expect (finished? BLUE) #true) ; checks
+; Tlcolor -> Boolean
+; end when commanded to exit by user
+(check-expect (finished? STOP) #false) ; checks
+(check-expect (finished? CAUTION) #false) ; checks
+(check-expect (finished? GO) #false) ; checks
+(check-expect (finished? EXIT) #true) ; checks
 (define (finished? color)
-  (equal? BLUE color))
+  (equal? EXIT color))
 
 
 ; actions!
 
-(main RED)
+(main STOP)
