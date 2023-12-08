@@ -17,7 +17,7 @@
 (define EXIT #false) ; stop the world!
 #;
 (define (fn-for-tlcolor color)
-  (... t))
+  (... color))
 
 
 ; constants
