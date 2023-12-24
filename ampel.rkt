@@ -27,9 +27,10 @@
     [...(fn-on-tr (first fsm)) ... (fn-on-fsm (rest fsm))]))
 
 
-(define-struct state+fsm [state fsm])
-; A State+FSM is a [Tlcolor FSM]
-; Clusters the current state with the governing FSM for use in MVC
+(define-struct world [state fsm cooldown])
+; A World is a [Tlcolor FSM Natural]
+; Clusters the current state with the governing FSM and a cooldown
+; for use in MVC
 #;
 (define (fn-on-spf spf)
   (...(fn-on-tlcolor (state+fsm-state spf))
@@ -61,31 +62,37 @@
 
 ;functions
 
-(define (main spf)
+(define (main init-state fsm)
   ; State+FSM -> State+FSM
   ; iterate the traffic light, for ever
-  (big-bang spf
-    [on-tick color-change 1]
+  (big-bang (make-world init-state fsm (random 280))
+    [on-tick color-change]
     [to-draw ampelmacher]
     #;[on-mouse terminate]
     #;[stop-when finished?]))
 
 
-(define (color-change spf)
+(define (color-change w)
   ; State+FSM -> State+FSM
   ; change the color of the light in a systematic way
-  (make-state+fsm
-   (change-color (state+fsm-state spf) (state+fsm-fsm spf))
-   (state+fsm-fsm spf)))
+  (cond
+    [(< (world-cooldown w) 0)
+     (make-world
+      (change-color (world-state w) (world-fsm w))
+      (world-fsm w) (random 280))]
+    [else (make-world (world-state w) (world-fsm w)
+                      (sub1 (world-cooldown w)))]))
 ; checks
-(check-expect (color-change (make-state+fsm STOP FSM-AMPEL))
-              (make-state+fsm GO FSM-AMPEL))
+(check-expect (world-state (color-change (make-world STOP FSM-AMPEL 0)))
+              GO)
+(check-expect (world-state (color-change (make-world STOP FSM-AMPEL 10)))
+              STOP)
 
 
 (define (ampelmacher spf)
   ; State+FSM -> Img
   ; produce an image of a well-functioning traffic light
-  (illuminate-ampel (state+fsm-state spf)))
+  (illuminate-ampel (world-state spf)))
 ; checks
 (check-expect (ampelmacher (make-state+fsm STOP FSM-AMPEL))
               (above (lightbulb STOP "solid")
@@ -133,7 +140,7 @@
 
 (define (lightbulb color impact)
   ; Tlcolor String -> Img
-; a helper function that generates colored bulbs in on or off state
+  ; a helper function that generates colored bulbs in on or off state
   (overlay (circle BULBRAD impact color) (square (* 3 BULBRAD) "solid" "black")))
 ; checks
 (check-expect (lightbulb STOP "outline") (overlay (circle BULBRAD "outline" STOP) (square (* 3 BULBRAD) "solid" "black"))) ; checks
@@ -170,4 +177,4 @@
 
 ; actions!
 
-(main (make-state+fsm STOP FSM-AMPEL))
+(main STOP FSM-AMPEL)
