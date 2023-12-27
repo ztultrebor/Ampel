@@ -1,6 +1,6 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-beginner-reader.ss" "lang")((modname ampel) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
+#reader(lib "htdp-intermediate-reader.ss" "lang")((modname ampel) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
 (require 2htdp/image)
 (require 2htdp/universe)
 
@@ -8,7 +8,7 @@
 ; data definitions
 
 (define-struct transition [from to])
-; A Transition is a [Tlcolor Tlcolor]
+; A Transition is a [State State]
 ; If the current state is equal to from-state, the Transition
 ; takes the current state to to-state
 #;
@@ -27,17 +27,8 @@
     [...(fn-on-tr (first fsm)) ... (fn-on-fsm (rest fsm))]))
 
 
-(define-struct world [state fsm cooldown])
-; A World is a [Tlcolor FSM Natural]
-; Clusters the current state with the governing FSM and a cooldown
-; for use in MVC
-#;
-(define (fn-on-spf spf)
-  (...(fn-on-tlcolor (state+fsm-state spf))
-      ... (fn-on-fsm (state+fsm-fsm spf))))
 
-
-;; Tlcolor is one of
+;; State is one of
 ;; - false
 ;; - String
 ;; represents any of the available traffic light colors, or false
@@ -54,76 +45,64 @@
 ; constants
 
 
-(define FSM-AMPEL (list (make-transition STOP GO) (make-transition GO CAUTION)
+(define FSM-AMPEL (list (make-transition STOP GO)
+                        (make-transition GO CAUTION)
                         (make-transition CAUTION STOP)))
 (define BULBRAD 50) ; light bulb radius
+(define COOLDOWN 512)
 
 
 
 ;functions
 
-(define (main init-state fsm)
-  ; State+FSM -> State+FSM
+(define (simulate fsm init-state)
+  ; FSM State -> State
   ; iterate the traffic light, for ever
-  (big-bang (make-world init-state fsm (random 280))
-    [on-tick color-change]
-    [to-draw ampelmacher]
-    #;[on-mouse terminate]
-    #;[stop-when finished?]))
+  (local (
+          (define (color-change state)
+            ; State -> State
+            ; change the color of the light in a systematic way
+            (cond
+              [(= (random COOLDOWN) 0)
+               (local (
+                       (define (find-in state fsm)
+                         ; State FSM -> State
+                         ; searches an fsm for a from state
+                         ; that matches the current state
+                         (cond
+                           [(state=? state (first fsm))
+                            (transition-to (first fsm))]
+                           [else (find-in state (rest fsm))])))
+                 (find-in state fsm))]
+              [else state])))
+    (big-bang init-state
+      [on-tick color-change]
+      [to-draw ampelmacher]
+      #;[on-mouse terminate]
+      #;[stop-when finished?])))
 
 
-(define (color-change w)
-  ; State+FSM -> State+FSM
-  ; change the color of the light in a systematic way
-  (cond
-    [(< (world-cooldown w) 0)
-     (make-world
-      (change-color (world-state w) (world-fsm w))
-      (world-fsm w) (random 280))]
-    [else (make-world (world-state w) (world-fsm w)
-                      (sub1 (world-cooldown w)))]))
-; checks
-(check-expect (world-state (color-change (make-world STOP FSM-AMPEL 0)))
-              GO)
-(check-expect (world-state (color-change (make-world STOP FSM-AMPEL 10)))
-              STOP)
-
-
-(define (ampelmacher spf)
-  ; State+FSM -> Img
+(define (ampelmacher state)
+  ; State -> Img
   ; produce an image of a well-functioning traffic light
-  (illuminate-ampel (world-state spf)))
+  (illuminate-ampel state))
 ; checks
-(check-expect (ampelmacher (make-state+fsm STOP FSM-AMPEL))
+(check-expect (ampelmacher STOP)
               (above (lightbulb STOP "solid")
                      (lightbulb CAUTION "outline")
                      (lightbulb GO "outline")))
-(check-expect (ampelmacher (make-state+fsm CAUTION FSM-AMPEL))
+(check-expect (ampelmacher CAUTION)
               (above (lightbulb STOP "outline")
                      (lightbulb CAUTION "solid")
                      (lightbulb GO "outline")))
-(check-expect (ampelmacher (make-state+fsm GO FSM-AMPEL))
+(check-expect (ampelmacher GO)
               (above (lightbulb STOP "outline")
                      (lightbulb CAUTION "outline")
                      (lightbulb GO "solid")))
 
 
-(define (change-color state fsm)
-  ; Tlcolor FSM -> Tlcolor
-  ; given a tlcolor and an fsm, return a new tlcolor according to fsm rules
-  (cond
-    [(empty? fsm) #f]
-    [(state=? state (first fsm))
-     (transition-to (first fsm))]
-    [else (change-color state (rest fsm))]))
-; checks
-(check-expect (change-color STOP FSM-AMPEL) GO)
-(check-expect (change-color CAUTION FSM-AMPEL) STOP)
-(check-expect (change-color GO FSM-AMPEL) CAUTION)
-
-
 (define (state=? current tr)
-  ; Tlcolor Transition -> Boolean
+  ; State Transition -> Boolean
   ; determine if the current state matches
   ; the from-state of the given transition
   (equal? current (transition-from tr)))
@@ -131,7 +110,7 @@
 
 
 (define (illuminate-ampel color)
-  ; State+Tlcolor -> Img
+  ; State -> Img
   ; light 'em up
   (above (lightbulb STOP (if (equal? STOP color) "solid" "outline"))
          (lightbulb CAUTION (if (equal? CAUTION color) "solid" "outline"))
@@ -139,7 +118,7 @@
   
 
 (define (lightbulb color impact)
-  ; Tlcolor String -> Img
+  ; State String -> Img
   ; a helper function that generates colored bulbs in on or off state
   (overlay (circle BULBRAD impact color) (square (* 3 BULBRAD) "solid" "black")))
 ; checks
@@ -151,12 +130,7 @@
 (check-expect (lightbulb GO "solid") (overlay (circle BULBRAD "solid" GO) (square (* 3 BULBRAD) "solid" "black"))) ; checks
 
 
-
-
-
-
-
-; (Tlcolor, Int, Int, MouseEvent) -> Tlcolor
+; (State, Int, Int, MouseEvent) -> State
 ; end cycle on mouseclick in ampel window
 (check-expect (terminate CAUTION 20 200 "button-down") EXIT)
 (check-expect (terminate CAUTION 20 200 "button-up") CAUTION)
@@ -164,7 +138,8 @@
   (cond [(mouse=? "button-down" me) EXIT]
         [else color]))
 
-; Tlcolor -> Boolean
+
+; State -> Boolean
 ; end when commanded to exit by user
 (check-expect (finished? STOP) #false) ; checks
 (check-expect (finished? CAUTION) #false) ; checks
@@ -177,4 +152,4 @@
 
 ; actions!
 
-(main STOP FSM-AMPEL)
+(simulate FSM-AMPEL STOP)
